@@ -24,7 +24,10 @@ jobs:
         env:
           DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-        run: python scripts/update_stores.py
+        run: |
+          test -n "$DATA_GO_KR_API_KEY"
+          test -n "$KAKAO_REST_API_KEY"
+          python scripts/update_stores.py
 
       - name: Commit updated data
         uses: stefanzweifel/git-auto-commit-action@v5
