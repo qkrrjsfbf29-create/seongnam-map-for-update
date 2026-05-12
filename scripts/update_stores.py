@@ -25,6 +25,8 @@ from urllib.request import Request, urlopen
 OAS_URL = "https://infuser.odcloud.kr/oas/docs?namespace=15129267/v1"
 API_HOST = "https://api.odcloud.kr/api"
 LATEST_DATASET_RE = re.compile(r"_(20\d{6})$")
+MIN_COORDINATE_CACHE = int(os.getenv("MIN_COORDINATE_CACHE", "25000"))
+MAX_GEOCODE_PER_RUN = int(os.getenv("MAX_GEOCODE_PER_RUN", "500"))
 
 COL_SEQUENCE = "연번"
 COL_NAME = "가맹점명"
@@ -166,7 +168,12 @@ def geocode_kakao(address: str, rest_api_key: str) -> tuple[float, float] | None
     return float(first["y"]), float(first["x"])
 
 
-def enrich_coordinates(stores: list[dict[str, Any]], cache: dict[str, tuple[float, float]], delay: float) -> int:
+def enrich_coordinates(
+    stores: list[dict[str, Any]],
+    cache: dict[str, tuple[float, float]],
+    delay: float,
+    max_geocode: int,
+) -> int:
     kakao_rest_api_key = os.getenv("KAKAO_REST_API_KEY", "")
     geocoded = 0
     for store in stores:
@@ -176,6 +183,9 @@ def enrich_coordinates(stores: list[dict[str, Any]], cache: dict[str, tuple[floa
             store["geocodingStatus"] = "cached"
             continue
         if not kakao_rest_api_key:
+            store["geocodingStatus"] = "needs_geocoding"
+            continue
+        if geocoded >= max_geocode:
             store["geocodingStatus"] = "needs_geocoding"
             continue
         result = geocode_kakao(address, kakao_rest_api_key)
@@ -222,6 +232,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Update Seongnam child allowance merchant data.")
     parser.add_argument("--output-dir", default=".", type=Path)
     parser.add_argument("--geocode-delay", default=0.12, type=float)
+    parser.add_argument("--max-geocode", default=MAX_GEOCODE_PER_RUN, type=int)
     return parser.parse_args()
 
 
@@ -234,7 +245,14 @@ def main() -> int:
     dataset_date, endpoint_path, raw_rows = fetch_public_data(service_key)
     stores = [normalize_row(row) for row in raw_rows]
     cache = load_coordinate_cache([args.output_dir / "stores.json", args.output_dir / "stores.csv"])
-    geocoded = enrich_coordinates(stores, cache, args.geocode_delay)
+    if len(cache) < MIN_COORDINATE_CACHE:
+        print(
+            f"Initial coordinate seed required: found {len(cache)} cached coordinates, "
+            f"need at least {MIN_COORDINATE_CACHE}.",
+            file=sys.stderr,
+        )
+        return 2
+    geocoded = enrich_coordinates(stores, cache, args.geocode_delay, args.max_geocode)
     write_outputs(args.output_dir, dataset_date, endpoint_path, stores)
     coordinate_count = sum(1 for store in stores if store["lat"] is not None and store["lng"] is not None)
     print(f"Updated {len(stores)} stores from dataset {dataset_date}; {coordinate_count} have coordinates; {geocoded} newly geocoded.")
