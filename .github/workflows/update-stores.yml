@@ -2,14 +2,12 @@ name: Update public store data
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/update-stores.yml"
-      - "scripts/update_stores.py"
   schedule:
     - cron: "17 19 1 * *"
+
+concurrency:
+  group: public-store-data-update
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -30,9 +28,11 @@ jobs:
         env:
           DATA_GO_KR_API_KEY: ${{ secrets.DATA_GO_KR_API_KEY }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          MAX_GEOCODE_PER_RUN: "500"
         run: |
           test -n "$DATA_GO_KR_API_KEY"
           test -n "$KAKAO_REST_API_KEY"
+          test -f stores.json
           python scripts/update_stores.py
 
       - name: Commit updated data
