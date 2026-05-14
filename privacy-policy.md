@@ -1,35 +1,56 @@
-# Privacy Policy
+# 개인정보 처리방침
 
-Last updated: May 14, 2026
+최종 업데이트: 2026년 5월 14일
 
-This privacy policy applies to the iOS app "성남 아동수당".
+본 개인정보 처리방침은 iOS 앱 "성남 아동수당"에 적용됩니다.
 
-## Information We Provide
+## 서비스 개요
 
-The app provides a map and list of Seongnam child allowance merchant locations using public merchant data. The merchant data may include store names, categories, addresses, coordinates, and reference dates.
+본 앱은 성남시 아동수당 가맹점 정보를 지도와 목록으로 제공하는 앱입니다. 가맹점 정보에는 상호명, 업종, 주소, 좌표, 기준일자 등이 포함될 수 있으며, 공공데이터 및 좌표 변환 결과를 기반으로 합니다.
 
-## Information We Collect
+## 수집하는 개인정보
 
-The app does not require account registration and does not collect names, email addresses, phone numbers, payment information, or user-generated content.
+본 앱은 회원가입을 요구하지 않으며, 이름, 이메일 주소, 전화번호, 결제 정보, 연락처, 사진, 메시지, 사용자 생성 콘텐츠를 직접 수집하지 않습니다.
 
-The app may use the device's location permission, if the user allows it, to show nearby merchants and sort results by distance. Location information is used for app functionality on the device and is not stored on our own server.
+다만 앱 기능 및 광고 제공을 위해 다음 정보가 사용되거나 제3자 SDK를 통해 처리될 수 있습니다.
 
-The app uses third-party SDKs and services, including Kakao Maps SDK and Google Mobile Ads SDK. These third-party services may process information such as device identifiers, IP address, approximate location, advertising data, app interactions, diagnostics, and performance information according to their own policies.
+- 위치 정보: 사용자가 위치 권한을 허용한 경우, 현재 위치 기준으로 가까운 가맹점을 표시하고 거리순 정렬 및 지도 기능을 제공하기 위해 사용됩니다.
+- 기기 식별자: Google AdMob 등 광고 SDK가 광고 제공 및 측정 목적으로 기기 수준 식별자를 처리할 수 있습니다.
+- 사용 데이터: 앱 실행, 화면 상호작용, 광고 노출 등 앱 사용과 관련된 정보가 광고 제공 또는 서비스 품질 개선 목적으로 처리될 수 있습니다.
+- 진단 데이터: 앱 충돌, 성능, 오류와 관련된 기술 정보가 안정성 개선을 위해 처리될 수 있습니다.
 
-## Advertising
+본 앱은 자체 서버에 사용자의 계정 정보나 위치 이동 기록을 저장하지 않습니다.
 
-The app may display banner advertisements through Google AdMob. Google and its advertising partners may use information to provide, measure, and improve advertising. Users can manage advertising and tracking permissions through iOS system settings where available.
+## 위치 정보 이용
 
-## Data Source and Accuracy
+위치 정보는 가까운 가맹점 표시, 거리 계산, 현재 위치 버튼, 지도 및 길찾기 기능 제공을 위해 사용됩니다. 사용자는 iOS 설정에서 언제든지 위치 권한을 변경하거나 거부할 수 있습니다.
 
-Merchant information is based on public data and geocoding results. Actual merchant availability, payment acceptance, and store status may differ from the app display. Users should confirm with the merchant or official card/merchant lookup channels when necessary.
+## 광고 및 제3자 SDK
 
-## Data Retention
+본 앱은 배너 광고 제공을 위해 Google AdMob SDK를 사용합니다. 광고 요청은 비개인화 광고 설정을 적용하여 처리합니다. 다만 Google 및 관련 광고 파트너는 광고 제공, 광고 성과 측정, 부정 사용 방지, 서비스 안정성 확보를 위해 기기 식별자, 광고 데이터, 사용 데이터, 진단 데이터 등을 처리할 수 있습니다.
 
-The app may cache public merchant data on the device to improve performance and offline availability. The app may also store the last known location locally on the device for faster startup behavior. Users can remove this local data by deleting the app.
+또한 본 앱은 지도 표시를 위해 Kakao Maps SDK를 사용합니다. 지도 서비스 제공 과정에서 지도 요청, 기기 또는 네트워크 관련 정보가 해당 서비스 제공자에 의해 처리될 수 있습니다.
 
-## Contact
+제3자 서비스의 개인정보 처리에 관한 자세한 내용은 각 제공자의 정책을 참고하시기 바랍니다.
 
-For support or privacy questions, please use the public repository support page:
+- Google 개인정보처리방침: https://policies.google.com/privacy?hl=ko
+- Google AdMob: https://support.google.com/admob/answer/6128543?hl=ko
+- 카카오 개인정보처리방침: https://www.kakao.com/policy/privacy
+
+## 데이터 출처 및 정확성
+
+가맹점 정보는 공공데이터와 좌표 변환 결과를 기반으로 제공됩니다. 실제 가맹점의 영업 여부, 결제 가능 여부, 주소 또는 업종 정보는 앱 표시와 다를 수 있습니다. 필요한 경우 가맹점 또는 공식 조회 채널을 통해 확인하시기 바랍니다.
+
+## 로컬 저장
+
+앱은 성능 향상 및 빠른 실행을 위해 공공 가맹점 데이터를 기기 내부에 저장할 수 있습니다. 또한 사용자가 위치 권한을 허용한 경우 마지막으로 확인된 위치를 기기 내부에 임시 저장하여 앱 시작 시 지도 위치를 빠르게 맞추는 데 사용할 수 있습니다. 이러한 로컬 데이터는 앱 삭제 시 함께 삭제됩니다.
+
+## 개인정보 보관 및 삭제
+
+본 앱은 자체 서버에 사용자의 개인정보를 저장하지 않습니다. 기기 내부에 저장된 앱 데이터는 사용자가 앱을 삭제하면 제거됩니다.
+
+## 문의
+
+개인정보 또는 앱 이용과 관련한 문의는 아래 지원 페이지를 통해 남길 수 있습니다.
 
 https://github.com/qkrrjsfbf29-create/seongnam-map-for-update/issues
