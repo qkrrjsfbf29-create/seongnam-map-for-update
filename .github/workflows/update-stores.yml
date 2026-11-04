@@ -1,20 +1,38 @@
 name: Update public store data
 
 on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - ".github/workflows/update-stores.yml"
   workflow_dispatch:
   schedule:
     - cron: "17 19 1 * *"
 
 concurrency:
-  group: public-store-data-update
+  group: public-store-data-update-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  update-stores:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test source freshness and no-op publication
+        run: python scripts/test_update_stores.py -v
+
+  update-stores:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

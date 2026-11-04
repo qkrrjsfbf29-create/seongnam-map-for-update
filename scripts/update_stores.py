@@ -213,21 +213,33 @@ SOURCE_FIELDS = ("id", "name", "category", "postalCode", "address", "referenceDa
 MAP_FIELDS = SOURCE_FIELDS + ("lat", "lng")
 
 
+def parse_reference_date(value: str):
+    for format in ("%Y%m%d", "%Y-%m-%d"):
+        try:
+            parsed = datetime.strptime(value, format).date()
+            if parsed.strftime(format) == value:
+                return parsed
+        except ValueError:
+            pass
+    raise ValueError(f"Invalid source reference date: {value!r}")
+
+
 def report_source_check(previous: dict[str, Any] | None, dataset_date: str, endpoint_path: str,
                         stores: list[dict[str, Any]]) -> str:
-    reference_day = datetime.strptime(dataset_date, "%Y%m%d").date()
+    reference_day = parse_reference_date(dataset_date)
     age_days = (datetime.now(KST).date() - reference_day).days
     if age_days < 0:
         raise RuntimeError(f"Public dataset has a future reference date: {dataset_date}.")
 
     fingerprint = row_signature(stores, SOURCE_FIELDS)
     previous_date = previous["metadata"]["datasetDate"] if previous else None
-    if previous_date and dataset_date < previous_date:
+    previous_day = parse_reference_date(previous_date) if previous_date else None
+    if previous_day and reference_day < previous_day:
         raise RuntimeError(f"Public dataset regressed from {previous_date} to {dataset_date}.")
 
     if not previous_date:
         status = "first_snapshot"
-    elif dataset_date > previous_date:
+    elif reference_day > previous_day:
         status = "new_reference_date"
     elif fingerprint != row_signature(previous["stores"], SOURCE_FIELDS):
         status = "same_date_source_changed"
@@ -240,6 +252,10 @@ def report_source_check(previous: dict[str, Any] | None, dataset_date: str, endp
         f"rows: {len(stores)}; SHA-256: {fingerprint}"
     )
     print(message)
+    summary_path = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as summary:
+            summary.write(f"## Source check\n\n```text\n{message}\n```\n")
     if age_days >= STALE_AFTER_DAYS:
         print(f"::warning::Public dataset reference date is {age_days} days old ({dataset_date}).")
     return status
@@ -306,13 +322,21 @@ def main() -> int:
             and (args.output_dir / "stores.csv").is_file()
             and row_signature(previous["stores"], MAP_FIELDS) == row_signature(stores, MAP_FIELDS)):
         print("Publication: skipped (source and map coordinates unchanged).")
+        publication_summary("skipped; generatedAt preserved")
         return 0
 
     write_outputs(args.output_dir, dataset_date, endpoint_path, stores)
     print("Publication: rebuilt app data.")
+    publication_summary("rebuilt; generatedAt is the build time, not the source date")
     coordinate_count = sum(1 for store in stores if store["lat"] is not None and store["lng"] is not None)
     print(f"Updated {len(stores)} stores from dataset {dataset_date}; {coordinate_count} have coordinates; {geocoded} newly geocoded.")
     return 0
+
+
+def publication_summary(message: str) -> None:
+    if path := os.getenv("GITHUB_STEP_SUMMARY"):
+        with open(path, "a", encoding="utf-8") as summary:
+            summary.write(f"\nPublication: {message}.\n")
 
 
 if __name__ == "__main__":
