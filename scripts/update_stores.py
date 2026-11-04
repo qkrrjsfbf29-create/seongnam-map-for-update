@@ -179,6 +179,7 @@ def enrich_coordinates(
 ) -> int:
     kakao_rest_api_key = os.getenv("KAKAO_REST_API_KEY", "")
     geocoded = 0
+    attempted = 0
     for store in stores:
         address = store["address"]
         if address in cache:
@@ -188,9 +189,10 @@ def enrich_coordinates(
         if not kakao_rest_api_key:
             store["geocodingStatus"] = "needs_geocoding"
             continue
-        if geocoded >= max_geocode:
+        if attempted >= max_geocode:
             store["geocodingStatus"] = "needs_geocoding"
             continue
+        attempted += 1
         result = geocode_kakao(address, kakao_rest_api_key)
         if result:
             store["lat"], store["lng"] = result

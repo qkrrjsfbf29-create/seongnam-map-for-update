@@ -105,6 +105,22 @@ class SourceChecks(unittest.TestCase):
     def test_coordinate_improvement_still_publishes(self):
         self.run_refresh(coordinate_improved=True)
 
+    def test_failed_geocodes_count_toward_request_limit(self):
+        stores = [dict(self.store, address=str(i), lat=None, lng=None) for i in range(4)]
+        with patch.dict(os.environ, {"KAKAO_REST_API_KEY": "dummy"}, clear=True), \
+                patch.object(updater, "geocode_kakao", return_value=None) as lookup:
+            self.assertEqual(updater.enrich_coordinates(stores, {}, 0, 2), 0)
+        self.assertEqual(lookup.call_count, 2)
+        self.assertEqual(stores[-1]["geocodingStatus"], "needs_geocoding")
+
+    def test_zero_request_budget_still_reuses_cached_coordinates(self):
+        stores = [dict(self.store, lat=None, lng=None)]
+        with patch.dict(os.environ, {"KAKAO_REST_API_KEY": "dummy"}, clear=True), \
+                patch.object(updater, "geocode_kakao") as lookup:
+            updater.enrich_coordinates(stores, {self.store["address"]: (37.42, 127.12)}, 0, 0)
+        lookup.assert_not_called()
+        self.assertEqual(stores[0]["lat"], 37.42)
+
 
 if __name__ == "__main__":
     unittest.main()

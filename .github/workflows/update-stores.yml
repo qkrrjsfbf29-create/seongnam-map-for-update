@@ -1,6 +1,11 @@
 name: Update public store data
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - ".github/workflows/update-stores.yml"
   pull_request:
     paths:
       - "scripts/**"
@@ -31,6 +36,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
