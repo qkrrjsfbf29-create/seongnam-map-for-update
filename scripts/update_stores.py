@@ -15,7 +15,7 @@ import os
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -24,6 +24,8 @@ from urllib.request import Request, urlopen
 
 OAS_URL = "https://infuser.odcloud.kr/oas/docs?namespace=15129267/v1"
 API_HOST = "https://api.odcloud.kr/api"
+STALE_AFTER_DAYS = 180
+KST = timezone(timedelta(hours=9))
 LATEST_DATASET_RE = re.compile(r"_(20\d{6})$")
 MIN_COORDINATE_CACHE = int(os.getenv("MIN_COORDINATE_CACHE", "25000"))
 MAX_GEOCODE_PER_RUN = int(os.getenv("MAX_GEOCODE_PER_RUN", "500"))
@@ -52,7 +54,9 @@ def newest_dataset_path(oas: dict[str, Any]) -> tuple[str, str]:
         summary = methods.get("get", {}).get("summary", "")
         match = LATEST_DATASET_RE.search(summary)
         if match:
-            candidates.append((match.group(1), path))
+            date = match.group(1)
+            datetime.strptime(date, "%Y%m%d")
+            candidates.append((date, path))
     if not candidates:
         raise RuntimeError("No dated public data endpoint found in OAS document.")
     return max(candidates, key=lambda item: item[0])
@@ -69,16 +73,15 @@ def fetch_public_data(service_key: str, per_page: int = 1000) -> tuple[str, str,
         query = urlencode({"page": page, "perPage": per_page, "returnType": "JSON", "serviceKey": service_key})
         payload = request_json(f"{API_HOST}{path}?{query}")
         batch = payload.get("data")
-        if "totalCount" not in payload or not isinstance(batch, list):
-            raise RuntimeError(f"Unexpected public data response on page {page}: {payload}")
-        total_count = int(payload["totalCount"])
-        if not batch:
-            break
+        if "totalCount" not in payload or not isinstance(batch, list) or not batch:
+            raise RuntimeError(f"Missing or invalid public data on page {page} for {dataset_date}.")
+        page_total = int(payload["totalCount"])
+        if (total_count is not None and page_total != total_count) or len(rows) + len(batch) > page_total:
+            raise RuntimeError(f"Inconsistent public data row count on page {page} for {dataset_date}.")
+        total_count = page_total
         rows.extend(batch)
         page += 1
 
-    if not rows:
-        raise RuntimeError(f"Public data endpoint returned no rows for dataset {dataset_date}.")
     return dataset_date, path, rows
 
 
@@ -200,6 +203,48 @@ def enrich_coordinates(
     return geocoded
 
 
+def row_signature(stores: list[dict[str, Any]], fields: tuple[str, ...]) -> str:
+    # Sort serialized rows so API ordering does not affect the result. Keep duplicates.
+    rows = sorted(json.dumps([store.get(field) for field in fields], ensure_ascii=False) for store in stores)
+    return hashlib.sha256("\n".join(rows).encode("utf-8")).hexdigest()
+
+
+SOURCE_FIELDS = ("id", "name", "category", "postalCode", "address", "referenceDate")
+MAP_FIELDS = SOURCE_FIELDS + ("lat", "lng")
+
+
+def report_source_check(previous: dict[str, Any] | None, dataset_date: str, endpoint_path: str,
+                        stores: list[dict[str, Any]]) -> str:
+    reference_day = datetime.strptime(dataset_date, "%Y%m%d").date()
+    age_days = (datetime.now(KST).date() - reference_day).days
+    if age_days < 0:
+        raise RuntimeError(f"Public dataset has a future reference date: {dataset_date}.")
+
+    fingerprint = row_signature(stores, SOURCE_FIELDS)
+    previous_date = previous["metadata"]["datasetDate"] if previous else None
+    if previous_date and dataset_date < previous_date:
+        raise RuntimeError(f"Public dataset regressed from {previous_date} to {dataset_date}.")
+
+    if not previous_date:
+        status = "first_snapshot"
+    elif dataset_date > previous_date:
+        status = "new_reference_date"
+    elif fingerprint != row_signature(previous["stores"], SOURCE_FIELDS):
+        status = "same_date_source_changed"
+    else:
+        status = "source_unchanged"
+
+    message = (
+        f"Source check: {status}; previous date: {previous_date or '-'}; "
+        f"source date: {dataset_date}; age: {age_days} days; endpoint: {endpoint_path}; "
+        f"rows: {len(stores)}; SHA-256: {fingerprint}"
+    )
+    print(message)
+    if age_days >= STALE_AFTER_DAYS:
+        print(f"::warning::Public dataset reference date is {age_days} days old ({dataset_date}).")
+    return status
+
+
 def write_outputs(output_dir: Path, dataset_date: str, endpoint_path: str, stores: list[dict[str, Any]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -244,6 +289,9 @@ def main() -> int:
         return 2
     dataset_date, endpoint_path, raw_rows = fetch_public_data(service_key)
     stores = [normalize_row(row) for row in raw_rows]
+    previous_path = args.output_dir / "stores.json"
+    previous = json.loads(previous_path.read_text(encoding="utf-8")) if previous_path.exists() else None
+    status = report_source_check(previous, dataset_date, endpoint_path, stores)
     cache = load_coordinate_cache([args.output_dir / "stores.json", args.output_dir / "stores.csv"])
     if len(cache) < MIN_COORDINATE_CACHE:
         print(
@@ -253,7 +301,15 @@ def main() -> int:
         )
         return 2
     geocoded = enrich_coordinates(stores, cache, args.geocode_delay, args.max_geocode)
+    if (status == "source_unchanged"
+            and previous["metadata"].get("endpointPath") == endpoint_path
+            and (args.output_dir / "stores.csv").is_file()
+            and row_signature(previous["stores"], MAP_FIELDS) == row_signature(stores, MAP_FIELDS)):
+        print("Publication: skipped (source and map coordinates unchanged).")
+        return 0
+
     write_outputs(args.output_dir, dataset_date, endpoint_path, stores)
+    print("Publication: rebuilt app data.")
     coordinate_count = sum(1 for store in stores if store["lat"] is not None and store["lng"] is not None)
     print(f"Updated {len(stores)} stores from dataset {dataset_date}; {coordinate_count} have coordinates; {geocoded} newly geocoded.")
     return 0
